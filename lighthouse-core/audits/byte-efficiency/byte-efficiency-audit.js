@@ -6,6 +6,7 @@
 'use strict';
 
 const Audit = require('../audit');
+const linearInterpolation = require('../../lib/statistics').linearInterpolation;
 const Interactive = require('../../gather/computed/metrics/lantern-interactive'); // eslint-disable-line max-len
 const Simulator = require('../../lib/dependency-graph/simulator/simulator'); // eslint-disable-line no-unused-vars
 const Node = require('../../lib/dependency-graph/node.js'); // eslint-disable-line no-unused-vars
@@ -16,6 +17,7 @@ const KB_IN_BYTES = 1024;
 
 const WASTED_MS_FOR_AVERAGE = 300;
 const WASTED_MS_FOR_POOR = 750;
+const WASTED_MS_FOR_SCORE_OF_ZERO = 5000;
 
 /**
  * @typedef {object} ByteEfficiencyProduct
@@ -32,14 +34,24 @@ const WASTED_MS_FOR_POOR = 750;
  */
 class UnusedBytes extends Audit {
   /**
+   * Creates a score based on the wastedMs value using linear interpolation between control points.
+   *
    * @param {number} wastedMs
    * @return {number}
    */
   static scoreForWastedMs(wastedMs) {
-    if (wastedMs === 0) return 1;
-    else if (wastedMs < WASTED_MS_FOR_AVERAGE) return 0.9;
-    else if (wastedMs < WASTED_MS_FOR_POOR) return 0.65;
-    else return 0;
+    if (wastedMs === 0) {
+      return 1;
+    } else if (wastedMs < WASTED_MS_FOR_AVERAGE) {
+      return linearInterpolation(0, 1, WASTED_MS_FOR_AVERAGE, 0.75, wastedMs);
+    } else if (wastedMs < WASTED_MS_FOR_POOR) {
+      return linearInterpolation(WASTED_MS_FOR_AVERAGE, 0.75, WASTED_MS_FOR_POOR, 0.5, wastedMs);
+    } else {
+      return Math.max(
+        0,
+        linearInterpolation(WASTED_MS_FOR_POOR, 0.5, WASTED_MS_FOR_SCORE_OF_ZERO, 0, wastedMs)
+      );
+    }
   }
 
   /**
@@ -70,11 +82,11 @@ class UnusedBytes extends Audit {
       return Math.round(totalBytes * compressionRatio);
     } else if (networkRecord._resourceType && networkRecord._resourceType._name === resourceType) {
       // This was a regular standalone asset, just use the transfer size.
-      return networkRecord._transferSize || 0;
+      return networkRecord.transferSize || 0;
     } else {
       // This was an asset that was inlined in a different resource type (e.g. HTML document).
       // Use the compression ratio of the resource to estimate the total transferred bytes.
-      const transferSize = networkRecord._transferSize || 0;
+      const transferSize = networkRecord.transferSize || 0;
       const resourceSize = networkRecord._resourceSize;
       const compressionRatio = resourceSize !== undefined ? (transferSize / resourceSize) : 1;
       return Math.round(totalBytes * compressionRatio);
@@ -116,13 +128,15 @@ class UnusedBytes extends Audit {
    * @param {Array<LH.Audit.ByteEfficiencyItem>} results The array of byte savings results per resource
    * @param {Node} graph
    * @param {Simulator} simulator
-   * @param {{includeLoad?: boolean}=} options
+   * @param {{includeLoad?: boolean, label?: string}=} options
    * @return {number}
    */
   static computeWasteWithTTIGraph(results, graph, simulator, options) {
-    options = Object.assign({includeLoad: true}, options);
+    options = Object.assign({includeLoad: true, label: this.meta.id}, options);
+    const beforeLabel = `${options.label}-before`;
+    const afterLabel = `${options.label}-after`;
 
-    const simulationBeforeChanges = simulator.simulate(graph);
+    const simulationBeforeChanges = simulator.simulate(graph, {label: beforeLabel});
     /** @type {Map<string, LH.Audit.ByteEfficiencyItem>} */
     const resultsByUrl = new Map();
     for (const result of results) {
@@ -137,15 +151,15 @@ class UnusedBytes extends Audit {
       const networkNode = /** @type {NetworkNode} */ (node);
       const result = resultsByUrl.get(networkNode.record.url);
       if (!result) return;
+
       const original = networkNode.record.transferSize;
-      // cloning NetworkRequest objects is difficult, so just stash the original transfer size
       originalTransferSizes.set(networkNode.record.requestId, original);
 
       const wastedBytes = result.wastedBytes;
-      networkNode.record._transferSize = Math.max(original - wastedBytes, 0);
+      networkNode.record.transferSize = Math.max(original - wastedBytes, 0);
     });
 
-    const simulationAfterChanges = simulator.simulate(graph);
+    const simulationAfterChanges = simulator.simulate(graph, {label: afterLabel});
 
     // Restore the original transfer size after we've done our simulation
     graph.traverse(node => {
@@ -153,7 +167,7 @@ class UnusedBytes extends Audit {
       const networkNode = /** @type {NetworkNode} */ (node);
       const originalTransferSize = originalTransferSizes.get(networkNode.record.requestId);
       if (originalTransferSize === undefined) return;
-      networkNode.record._transferSize = originalTransferSize;
+      networkNode.record.transferSize = originalTransferSize;
     });
 
     const savingsOnOverallLoad = simulationBeforeChanges.timeInMs - simulationAfterChanges.timeInMs;

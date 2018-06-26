@@ -34,11 +34,11 @@ declare global {
     export type DisplayValue = string | DisplayValueArray;
 
     export interface Meta {
-      name: string;
+      id: string;
+      title: string;
+      failureTitle?: string;
       description: string;
-      helpText: string;
       requiredArtifacts: Array<keyof Artifacts>;
-      failureDescription?: string;
       scoreDisplayMode?: Audit.ScoreDisplayMode;
     }
 
@@ -145,6 +145,17 @@ declare global {
         children: SimpleCriticalRequestNode;
       }
     }
+
+    type MultiCheckAuditP1 = Partial<Record<Artifacts.ManifestValueCheckID, boolean>>;
+    type MultiCheckAuditP2 = Partial<Artifacts.ManifestValues>;
+    interface MultiCheckAuditP3 {
+      failures: Array<string>;
+      warnings?: undefined;
+      manifestValues?: undefined;
+      allChecks?: undefined;
+    }
+
+    export type MultiCheckAuditDetails = MultiCheckAuditP1 & MultiCheckAuditP2 & MultiCheckAuditP3;
   }
 }
 

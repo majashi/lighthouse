@@ -6,7 +6,7 @@
 'use strict';
 
 const Runner = require('../../../runner');
-const ByteEfficiencyAudit = require('../../../audits/byte-efficiency/byte-efficiency-audit');
+const ByteEfficiencyAudit_ = require('../../../audits/byte-efficiency/byte-efficiency-audit');
 const NetworkNode = require('../../../lib/dependency-graph/network-node');
 const CPUNode = require('../../../lib/dependency-graph/cpu-node');
 const Simulator = require('../../../lib/dependency-graph/simulator/simulator');
@@ -21,20 +21,20 @@ describe('Byte efficiency base audit', () => {
   let graph;
   let simulator;
 
+  const ByteEfficiencyAudit = class extends ByteEfficiencyAudit_ {
+    static get meta() {
+      return {name: 'test'};
+    }
+  };
+
   beforeEach(() => {
     const networkRecord = {
       requestId: 1,
       url: 'http://example.com/',
       parsedURL: {scheme: 'http', securityOrigin: () => 'http://example.com'},
-      _transferSize: 400000,
+      transferSize: 400000,
       _timing: {receiveHeadersEnd: 0},
     };
-
-    Object.defineProperty(networkRecord, 'transferSize', {
-      get() {
-        return this._transferSize;
-      },
-    });
 
     graph = new NetworkNode(networkRecord);
     // add a CPU node to force improvement to TTI
@@ -58,19 +58,19 @@ describe('Byte efficiency base audit', () => {
 
     it('should return transferSize when asset matches', () => {
       const _resourceType = {_name: 'stylesheet'};
-      const result = estimate({_transferSize: 1234, _resourceType}, 10000, 'stylesheet');
+      const result = estimate({transferSize: 1234, _resourceType}, 10000, 'stylesheet');
       assert.equal(result, 1234);
     });
 
     it('should estimate by network compression ratio when asset does not match', () => {
       const _resourceType = {_name: 'other'};
-      const result = estimate({_resourceSize: 2000, _transferSize: 1000, _resourceType}, 100);
+      const result = estimate({_resourceSize: 2000, transferSize: 1000, _resourceType}, 100);
       assert.equal(result, 50);
     });
 
     it('should not error when missing resource size', () => {
       const _resourceType = {_name: 'other'};
-      const result = estimate({_transferSize: 1000, _resourceType}, 100);
+      const result = estimate({transferSize: 1000, _resourceType}, 100);
       assert.equal(result, 100);
     });
   });

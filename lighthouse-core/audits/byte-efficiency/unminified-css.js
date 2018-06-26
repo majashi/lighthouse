@@ -20,11 +20,11 @@ class UnminifiedCSS extends ByteEfficiencyAudit {
    */
   static get meta() {
     return {
-      name: 'unminified-css',
-      description: 'Minify CSS',
+      id: 'unminified-css',
+      title: 'Minify CSS',
       scoreDisplayMode: ByteEfficiencyAudit.SCORING_MODES.NUMERIC,
-      helpText: 'Minifying CSS files can reduce network payload sizes. ' +
-        '[Learn more](https://developers.google.com/speed/docs/insights/MinifyResources).',
+      description: 'Minifying CSS files can reduce network payload sizes. ' +
+        '[Learn more](https://developers.google.com/web/tools/lighthouse/audits/minify-css).',
       requiredArtifacts: ['CSSUsage', 'devtoolsLogs'],
     };
   }

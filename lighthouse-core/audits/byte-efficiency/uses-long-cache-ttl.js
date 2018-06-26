@@ -11,6 +11,7 @@ const parseCacheControl = require('parse-cache-control');
 const Audit = require('../audit');
 const WebInspector = require('../../lib/web-inspector');
 const URL = require('../../lib/url-shim');
+const linearInterpolation = require('../../lib/statistics').linearInterpolation;
 
 // Ignore assets that have very high likelihood of cache hit
 const IGNORE_THRESHOLD_IN_PERCENT = 0.925;
@@ -21,12 +22,12 @@ class CacheHeaders extends Audit {
    */
   static get meta() {
     return {
-      name: 'uses-long-cache-ttl',
-      description: 'Uses efficient cache policy on static assets',
-      failureDescription: 'Uses inefficient cache policy on static assets',
-      helpText:
+      id: 'uses-long-cache-ttl',
+      title: 'Uses efficient cache policy on static assets',
+      failureTitle: 'Uses inefficient cache policy on static assets',
+      description:
         'A long cache lifetime can speed up repeat visits to your page. ' +
-        '[Learn more](https://developers.google.com/web/fundamentals/performance/optimizing-content-efficiency/http-caching#cache-control).',
+        '[Learn more](https://developers.google.com/web/tools/lighthouse/audits/cache-policy).',
       scoreDisplayMode: Audit.SCORING_MODES.NUMERIC,
       requiredArtifacts: ['devtoolsLogs'],
     };
@@ -43,20 +44,6 @@ class CacheHeaders extends Audit {
       scorePODR: 4 * 1024,
       scoreMedian: 128 * 1024,
     };
-  }
-
-  /**
-   * Interpolates the y value at a point x on the line defined by (x0, y0) and (x1, y1)
-   * @param {number} x0
-   * @param {number} y0
-   * @param {number} x1
-   * @param {number} y1
-   * @param {number} x
-   * @return {number}
-   */
-  static linearInterpolation(x0, y0, x1, y1, x) {
-    const slope = (y1 - y0) / (x1 - x0);
-    return y0 + (x - x0) * slope;
   }
 
   /**
@@ -90,7 +77,7 @@ class CacheHeaders extends Audit {
     const lowerDecile = (upperDecileIndex - 1) / 10;
 
     // Approximate the real likelihood with linear interpolation
-    return CacheHeaders.linearInterpolation(
+    return linearInterpolation(
       lowerDecileValue,
       lowerDecile,
       upperDecileValue,
@@ -198,7 +185,7 @@ class CacheHeaders extends Audit {
         if (cacheHitProbability > IGNORE_THRESHOLD_IN_PERCENT) continue;
 
         const url = URL.elideDataURI(record._url);
-        const totalBytes = record._transferSize || 0;
+        const totalBytes = record.transferSize || 0;
         const wastedBytes = (1 - cacheHitProbability) * totalBytes;
 
         totalWastedBytes += wastedBytes;

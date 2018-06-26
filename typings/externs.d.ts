@@ -22,6 +22,11 @@ declare global {
     [P in K]+?: T[P]
   }
 
+  /**
+   * Exclude void from T
+   */
+  type NonVoid<T> = T extends void ? never : T;
+
   /** Remove properties K from T. */
   type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>;
 
@@ -137,6 +142,11 @@ declare global {
       cat: string;
       args: {
         data?: {
+          frames?: {
+            frame: string;
+            parent?: string;
+            processId?: number;
+          }[];
           page?: string;
           readyState?: number;
           requestId?: string;
@@ -148,12 +158,14 @@ declare global {
           url?: string;
         };
         frame?: string;
+        name?: string;
       };
       pid: number;
       tid: number;
       ts: number;
       dur: number;
       ph: 'B'|'b'|'D'|'E'|'e'|'F'|'I'|'M'|'N'|'n'|'O'|'R'|'S'|'T'|'X';
+      s?: 't';
     }
 
     export interface DevToolsJsonTarget {
