@@ -288,16 +288,12 @@ class Util {
    * @return {{file: string, hostname: string, origin: string}}
    */
   static parseURL(url) {
-    try {
-      const parsedUrl = new URL(url);
-      return {
-        file: Util.getURLDisplayName(parsedUrl),
-        hostname: parsedUrl.hostname,
-        origin: parsedUrl.origin,
-      };
-    } catch (_) {
-      return {file: 'Unknown', hostname: 'Unknown', origin: 'Unknown'};
-    }
+    const parsedUrl = new URL(url);
+    return {
+      file: Util.getURLDisplayName(parsedUrl),
+      hostname: parsedUrl.hostname,
+      origin: parsedUrl.origin,
+    };
   }
 
   /**
